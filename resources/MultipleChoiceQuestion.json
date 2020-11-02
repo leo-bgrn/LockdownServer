@@ -1,0 +1,11 @@
+{
+  "question": {
+    "type": "text",
+    "value": "My text question ?"
+  },
+  "answer": {
+    "type": "checkbox",
+    "choices": ["checkbox10", "checkbox20", "checkbox30"],
+    "answerPositions": [0, 2]
+  }
+}
