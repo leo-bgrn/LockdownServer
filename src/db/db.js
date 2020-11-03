@@ -51,4 +51,27 @@ async function query(collection, args) {
   }
 }
 
-module.exports = { query, queryList };
+async function aggregate(collection, number) {
+  try {
+    let client = new MongoClient(connectionString, { useNewUrlParser: true });
+    let connection = await client.connect();
+
+    try {
+      const res = await connection
+        .db(dbName)
+        .collection(collection)
+        .aggregate([{ $sample: { size: number } }])
+        .toArray();
+      return res;
+    } catch (error) {
+      throw error;
+    } finally {
+      client.close();
+    }
+  } catch (e) {
+    console.log("Unable to get results from MongoDB : ", e);
+    throw e;
+  }
+}
+
+module.exports = { query, queryList, aggregate };

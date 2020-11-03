@@ -11,7 +11,13 @@ async function getQuestionById(id) {
   return question;
 }
 
+async function getRandomQuestions(size) {
+  const questions = await db.aggregate("questions", size);
+  return questions;
+}
+
 module.exports = {
   getAllQuestions,
   getQuestionById,
+  getRandomQuestions,
 };
