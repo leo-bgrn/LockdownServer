@@ -1,18 +1,20 @@
-var createError = require("http-errors");
-var express = require("express");
-var path = require("path");
-var morgan = require("morgan");
-var bodyParser = require("body-parser");
-var winston = require("./config/winston");
+const createError = require("http-errors");
+const express = require("express");
+const path = require("path");
+const morgan = require("morgan");
+const bodyParser = require("body-parser");
+const winston = require("./config/winston");
 const authMiddleware = require("./auth");
 
 const dotenv = require("dotenv");
 dotenv.config();
 
-var app = express();
+const app = express();
 
 app.use(bodyParser.json());
-app.use(authMiddleware);
+if (!["DEV", "DEVELOPMENT"].includes(process.env.ENVIRONMENT.toUpperCase())) {
+  app.use(authMiddleware);
+}
 
 // view engine setup
 app.set("views", path.join(__dirname, "views"));
@@ -22,7 +24,7 @@ app.use(morgan("tiny", { stream: winston.stream }));
 app.use(bodyParser.text());
 app.use(bodyParser.urlencoded({ extended: false }));
 
-var questionsRouter = require("./src/routes/questions.route");
+const questionsRouter = require("./src/routes/questions.route");
 app.use("/questions", questionsRouter);
 
 // catch 404 and forward to error handler
