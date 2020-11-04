@@ -1,0 +1,12 @@
+{
+  "question": {
+    "type": "textWithImage",
+    "text": "My text question ?",
+    "source": "https://static.vecteezy.com/system/resources/thumbnails/000/246/312/original/mountain-lake-sunset-landscape-first-person-view.jpg"
+  },
+  "answer": {
+    "type": "radioCheck",
+    "choices": ["radioCheck1", "radioCheck2", "radioCheck3"],
+    "answerPosition": 2
+  }
+}

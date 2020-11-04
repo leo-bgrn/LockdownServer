@@ -1,0 +1,10 @@
+{
+  "question": {
+    "type": "text",
+    "value": "My text question ?"
+  },
+  "answer": {
+    "type": "plaintextMultipleValue",
+    "answers": [["Halliday", "Johny Halliday"], ["Pitbull"]]
+  }
+}
