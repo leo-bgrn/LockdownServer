@@ -4,7 +4,7 @@ const path = require("path");
 const morgan = require("morgan");
 const bodyParser = require("body-parser");
 const winston = require("./config/winston");
-const authMiddleware = require("./auth");
+//const authMiddleware = require("./auth");
 
 const dotenv = require("dotenv");
 dotenv.config();
@@ -12,9 +12,9 @@ dotenv.config();
 const app = express();
 
 app.use(bodyParser.json());
-if (!["DEV", "DEVELOPMENT"].includes(process.env.ENVIRONMENT.toUpperCase())) {
+/* if (!["DEV", "DEVELOPMENT"].includes(process.env.ENVIRONMENT.toUpperCase())) {
   app.use(authMiddleware);
-}
+} */
 
 // view engine setup
 app.set("views", path.join(__dirname, "views"));
