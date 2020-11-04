@@ -8,7 +8,10 @@ const dbName = process.env.DB_NAME;
 
 async function queryList(collection, args) {
   try {
-    let client = new MongoClient(connectionString, { useNewUrlParser: true });
+    let client = new MongoClient(connectionString, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
     let connection = await client.connect();
 
     try {
@@ -31,7 +34,10 @@ async function queryList(collection, args) {
 
 async function query(collection, args) {
   try {
-    let client = new MongoClient(connectionString, { useNewUrlParser: true });
+    let client = new MongoClient(connectionString, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
     let connection = await client.connect();
 
     try {
@@ -53,7 +59,10 @@ async function query(collection, args) {
 
 async function aggregate(collection, number) {
   try {
-    let client = new MongoClient(connectionString, { useNewUrlParser: true });
+    let client = new MongoClient(connectionString, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
     let connection = await client.connect();
 
     try {
