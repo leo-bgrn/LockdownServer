@@ -4,17 +4,21 @@ const path = require("path");
 const morgan = require("morgan");
 const bodyParser = require("body-parser");
 const winston = require("./config/winston");
-const authMiddleware = require("./auth");
+const rateLimit = require("express-rate-limit");
 
 const dotenv = require("dotenv");
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 1);
+const limiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+});
+
+app.use(limiter);
 
 app.use(bodyParser.json());
-if (!["DEV", "DEVELOPMENT"].includes(process.env.ENVIRONMENT.toUpperCase())) {
-  app.use(authMiddleware);
-}
 
 // view engine setup
 app.set("views", path.join(__dirname, "views"));
@@ -35,6 +39,8 @@ app.use(function (req, res, next) {
 
 const questionsRouter = require("./src/routes/questions.route");
 app.use("/questions", questionsRouter);
+const suggestionsRouter = require("./src/routes/suggestions.route");
+app.use("/suggestions", suggestionsRouter);
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
