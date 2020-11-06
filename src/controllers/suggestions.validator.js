@@ -116,7 +116,7 @@ function checkFieldIsStringAndNotEmpty(
       `'${fieldName}' field must be present for a '${type}' ${questionOrAnswer}`
     );
   }
-  if (typeof field != "string") {
+  if (typeof field !== "string") {
     throw new Error(
       `'${fieldName}' field must be a string for a '${type}' ${questionOrAnswer}`
     );

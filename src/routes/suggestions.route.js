@@ -34,7 +34,7 @@ router.get("/:nbrOfQuestion", async function (req, res, next) {
 
 router.post("/", async function (req, res, next) {
   try {
-    suggestionController.insertNewSuggestion(req.body);
+    await suggestionController.insertNewSuggestion(req.body);
     res.sendStatus(201);
   } catch (e) {
     next(e);
@@ -44,7 +44,7 @@ router.post("/", async function (req, res, next) {
 router.post("/validate/:id", async function (req, res, next) {
   try {
     const id = req.params.id;
-    suggestionController.validateSuggestion(id);
+    await suggestionController.validateSuggestion(id);
     res.sendStatus(200);
   } catch (e) {
     next(e);

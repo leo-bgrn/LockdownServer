@@ -1,4 +1,4 @@
-const { logger } = require("../../config/winston");
+const logger = require("../../config/winston");
 const suggestionDb = require("../db/suggestions.db");
 const questionDb = require("../db/questions.db");
 const validator = require("./suggestions.validator");
@@ -9,7 +9,7 @@ async function insertNewSuggestion(object) {
     await suggestionDb.insertSuggestion(formattedObject);
   } catch (e) {
     logger.error("Unable to validate suggestion object :", e.message, object);
-    throw Error(`Unable to validate suggestion object : ${e.message}`);
+    throw new Error(`Unable to validate suggestion object : ${e.message}`);
   }
 }
 
