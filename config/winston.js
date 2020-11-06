@@ -14,7 +14,7 @@ const options = {
     format: winston.format.combine(
       winston.format.timestamp(),
       winston.format.json()
-    )
+    ),
   },
   console: {
     level: "debug",
