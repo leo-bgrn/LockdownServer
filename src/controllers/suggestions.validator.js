@@ -99,7 +99,7 @@ function validateRadioAnswer(answer) {
 }
 
 function checkFieldIsArrayOfString(field, fieldName, type, questionOrAnswer) {
-  if (!field) {
+  if (field == null) {
     throw new Error(
       `'${fieldName}' field must be present for a '${type}' ${questionOrAnswer}`
     );
@@ -131,7 +131,7 @@ function checkFieldIsStringAndNotEmpty(
   type,
   questionOrAnswer
 ) {
-  if (!field) {
+  if (field == null) {
     throw new Error(
       `'${fieldName}' field must be present for a '${type}' ${questionOrAnswer}`
     );
@@ -149,7 +149,7 @@ function checkFieldIsStringAndNotEmpty(
 }
 
 function checkFieldIsInteger(field, fieldName, type, questionOrAnswer) {
-  if (!field) {
+  if (field == null) {
     throw new Error(
       `'${fieldName}' field must be present for a '${type}' ${questionOrAnswer}`
     );
@@ -167,7 +167,7 @@ function checkFieldIsArrayOfArrayString(
   type,
   questionOrAnswer
 ) {
-  if (!field) {
+  if (field == null) {
     throw new Error(
       `'${fieldName}' field must be present for a '${type}' ${questionOrAnswer}`
     );
@@ -198,7 +198,7 @@ function checkFieldIsArrayOfArrayString(
 }
 
 function checkFieldIsArrayOfInteger(field, fieldName, type, questionOrAnswer) {
-  if (!field) {
+  if (field == null) {
     throw new Error(
       `'${fieldName}' field must be present for a '${type}' ${questionOrAnswer}`
     );
