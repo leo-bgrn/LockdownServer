@@ -13,7 +13,7 @@ describe("db query", () => {
     expect(Array.isArray(res)).toBe(false);
   });
   xtest("aggregate should returns something", async () => {
-    const res = await db.aggregate("questions", 2);
-    expect(Array.isArray(res)).toBe(false);
+    const res = await db.connect("questions", db.aggregate, 2);
+    expect(Array.isArray(res)).toBe(true);
   });
 });

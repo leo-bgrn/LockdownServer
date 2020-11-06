@@ -1,7 +1,7 @@
 {
   "question": {
     "type": "text",
-    "value": "My text question ?"
+    "content": "My text question ?"
   },
   "answer": {
     "type": "plaintext",
