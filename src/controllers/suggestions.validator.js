@@ -98,6 +98,33 @@ function validateRadioAnswer(answer) {
   };
 }
 
+function checkFieldIsArrayOfString(field, fieldName, type, questionOrAnswer) {
+  if (!field) {
+    throw new Error(
+      `'${fieldName}' field must be present for a '${type}' ${questionOrAnswer}`
+    );
+  }
+  if (!Array.isArray(field)) {
+    throw new Error(
+      `'${fieldName}' field must be an Array for a '${type}' ${questionOrAnswer}`
+    );
+  }
+  if (field.length < 1) {
+    throw new Error(
+      `'${fieldName}' field cannot be an empty Array for a '${type}' ${questionOrAnswer}`
+    );
+  }
+  if (
+    !field.every(
+      (element) => typeof element === "string" && element.trim() !== ""
+    )
+  ) {
+    throw new Error(
+      `Every elements in '${fieldName}' field must be a string for a '${type}' ${questionOrAnswer}`
+    );
+  }
+}
+
 function checkFieldIsStringAndNotEmpty(
   field,
   fieldName,
