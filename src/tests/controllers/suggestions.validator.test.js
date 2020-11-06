@@ -1,4 +1,4 @@
-const suggestionsController = require("../../controllers/suggestions.controller");
+const suggestionsValidator = require("../../controllers/suggestions.validator");
 
 describe("Validation Object", () => {
   test("validate object should validate a text question / plaintext answer suggestion", () => {
@@ -12,7 +12,7 @@ describe("Validation Object", () => {
         answers: ["My Answer"],
       },
     };
-    const res = suggestionsController.validateObject(testObject);
+    const res = suggestionsValidator.validateObject(testObject);
     expect(res).toEqual(testObject);
   });
   test("validate object should validate a text question / plaintextMultipleValue answer suggestion", () => {
@@ -23,7 +23,7 @@ describe("Validation Object", () => {
         answers: [["Halliday", "Johny Halliday"], ["Pitbull"]],
       },
     };
-    const res = suggestionsController.validateObject(testObject);
+    const res = suggestionsValidator.validateObject(testObject);
     expect(res).toEqual(testObject);
   });
   test("validate object should validate a text question / checkbox answer suggestion", () => {
@@ -35,7 +35,7 @@ describe("Validation Object", () => {
         answers: [0, 2],
       },
     };
-    const res = suggestionsController.validateObject(testObject);
+    const res = suggestionsValidator.validateObject(testObject);
     expect(res).toEqual(testObject);
   });
   test("validate object should validate a textWithImage question / radio answer suggestion", () => {
@@ -52,7 +52,7 @@ describe("Validation Object", () => {
         answers: 2,
       },
     };
-    const res = suggestionsController.validateObject(testObject);
+    const res = suggestionsValidator.validateObject(testObject);
     expect(res).toEqual(testObject);
   });
 });
