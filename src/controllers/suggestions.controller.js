@@ -8,7 +8,7 @@ async function insertNewSuggestion(object) {
     const formattedObject = validator.validateObject(object);
     await suggestionDb.insertSuggestion(formattedObject);
   } catch (e) {
-    logger.error("Unable to validate suggestion object :", e.message, object);
+    logger.error(`Unable to validate suggestion object : ${e.message}`, object);
     throw new Error(`Unable to validate suggestion object : ${e.message}`);
   }
 }

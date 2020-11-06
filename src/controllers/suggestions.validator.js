@@ -49,8 +49,6 @@ function validateAnswer(answer) {
   switch (answer.type) {
     case "plaintext":
       return validatePlainTextAnswer(answer);
-    case "plaintextMultipleValue":
-      return validatePlainTextMultipleValueAnswer(answer);
     case "checkbox":
       return validateCheckboxAnswer(answer);
     case "radio":
@@ -61,15 +59,10 @@ function validateAnswer(answer) {
 }
 
 function validatePlainTextAnswer(answer) {
-  checkFieldIsArrayOfString(answer.answers, "answers", "plaintext", "answer");
-  return { type: answer.type, answers: answer.answers };
-}
-
-function validatePlainTextMultipleValueAnswer(answer) {
   checkFieldIsArrayOfArrayString(
     answer.answers,
     "answers",
-    "plaintextMultipleValue",
+    "plaintext",
     "answer"
   );
   return { type: answer.type, answers: answer.answers };
@@ -137,33 +130,6 @@ function checkFieldIsInteger(field, fieldName, type, questionOrAnswer) {
   if (!Number.isInteger(field)) {
     throw new Error(
       `'${fieldName}' field must be an Integer for a '${type}' ${questionOrAnswer}`
-    );
-  }
-}
-
-function checkFieldIsArrayOfString(field, fieldName, type, questionOrAnswer) {
-  if (!field) {
-    throw new Error(
-      `'${fieldName}' field must be present for a '${type}' ${questionOrAnswer}`
-    );
-  }
-  if (!Array.isArray(field)) {
-    throw new Error(
-      `'${fieldName}' field must be an Array for a '${type}' ${questionOrAnswer}`
-    );
-  }
-  if (field.length < 1) {
-    throw new Error(
-      `'${fieldName}' field cannot be an empty Array for a '${type}' ${questionOrAnswer}`
-    );
-  }
-  if (
-    !field.every(
-      (element) => typeof element === "string" && element.trim() !== ""
-    )
-  ) {
-    throw new Error(
-      `Every elements in '${fieldName}' field must be a string for a '${type}' ${questionOrAnswer}`
     );
   }
 }
