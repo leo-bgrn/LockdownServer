@@ -22,7 +22,7 @@ router.get("/:id", async function (req, res, next) {
   }
 });
 
-router.get("/:nbrOfQuestion", async function (req, res, next) {
+router.get("/random/:nbrOfQuestion", async function (req, res, next) {
   try {
     const nbrOfQuestion = req.params.nbrOfQuestion;
     const suggestions = await suggestionsDb.getRandomSuggestions(nbrOfQuestion);
@@ -45,6 +45,16 @@ router.post("/validate/:id", async function (req, res, next) {
   try {
     const id = req.params.id;
     await suggestionController.validateSuggestion(id);
+    res.sendStatus(200);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.delete("/:id", async function (req, res, next) {
+  try {
+    const id = req.params.id;
+    await suggestionsDb.deleteSuggestionById(id);
     res.sendStatus(200);
   } catch (e) {
     next(e);
