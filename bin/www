@@ -35,15 +35,6 @@ const sio = require("socket.io")(server, {
   ],
 });
 
-sio.on("connection", (socket) => {
-  console.log("Connected!");
-  socket.emit("question", "my question");
-  socket.on("next", (data) => {
-    console.log(data);
-    socket.emit("question", { question: "my question" });
-  });
-});
-
 /**
  * Listen on provided port, on all network interfaces.
  */
@@ -107,3 +98,7 @@ function onListening() {
   var bind = typeof addr === "string" ? "pipe " + addr : "port " + addr.port;
   debug("Listening on " + bind);
 }
+
+const { socketBehavior } = require("../socket");
+
+sio.on("connection", (socket) => socketBehavior(socket));
