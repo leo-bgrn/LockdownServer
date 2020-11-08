@@ -14,7 +14,7 @@ async function insertNewSuggestion(object) {
 }
 
 async function validateSuggestion(id) {
-  let suggestion = suggestionDb.getSuggestionById(id);
+  let suggestion = await suggestionDb.getSuggestionById(id);
   delete suggestion._id;
   await questionDb.insertQuestion(suggestion);
   await suggestionDb.deleteSuggestionById(id);
