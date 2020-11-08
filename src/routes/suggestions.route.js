@@ -24,7 +24,7 @@ router.get("/:id", async function (req, res, next) {
 
 router.get("/random/:nbrOfQuestion", async function (req, res, next) {
   try {
-    const nbrOfQuestion = req.params.nbrOfQuestion;
+    const nbrOfQuestion = Number(req.params.nbrOfQuestion);
     const suggestions = await suggestionsDb.getRandomSuggestions(nbrOfQuestion);
     res.send(suggestions);
   } catch (e) {

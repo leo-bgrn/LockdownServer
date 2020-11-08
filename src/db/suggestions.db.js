@@ -25,7 +25,7 @@ async function getSuggestionById(id) {
 }
 
 async function getRandomSuggestions(size) {
-  const suggestions = await db.connect(collection, aggregate, size);
+  const suggestions = await db.connect(collection, db.aggregate, size);
   return suggestions;
 }
 
