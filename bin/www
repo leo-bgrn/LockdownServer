@@ -168,8 +168,8 @@ function socketBehavior(socket) {
         await restartGame();
       } else {
         console.info(`Every users ready, sending next question`);
-        sendNextRound();
         gamesData.users.map((user) => (user.ready = false));
+        sendNextRound();
       }
     }
   });
@@ -252,7 +252,7 @@ async function prepareGameData() {
 }
 
 async function prepareQuestions() {
-  const questions = await questionDb.getRandomQuestions(10);
+  const questions = await questionDb.getRandomQuestions(2);
   questions.map((question) => {
     let toAddQuestion = {
       id: question._id,
@@ -293,7 +293,7 @@ function sendNextRound() {
     });
   }
   gamesData.validations = null;
-  if (gamesData.step === gamesData.questions.length - 1) {
+  if (gamesData.step === gamesData.questions.length) {
     sendScoreTable();
   } else {
     sio.to("myRoom").emit("round", {
