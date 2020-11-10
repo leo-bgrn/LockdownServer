@@ -168,7 +168,7 @@ function socketBehavior(socket) {
         await restartGame();
       } else {
         console.info(`Every users ready, sending next question`);
-        sendNextQuestion();
+        sendNextRound();
         gamesData.users.map((user) => (user.ready = false));
       }
     }
@@ -196,10 +196,7 @@ function socketBehavior(socket) {
     const userAnswer = data.answer;
     gamesData.users.map((user) => {
       if (user.pseudo === userPseudo) {
-        user.answers.push({
-          step: gamesData.step,
-          answer: userAnswer,
-        });
+        user.answers.push(userAnswer);
       }
     });
     console.info(`User ${userPseudo} answered the question with ${userAnswer}`);
@@ -217,6 +214,7 @@ function socketBehavior(socket) {
     const userPseudo = data.pseudo;
     const userToValidate = data.userToValidate;
     gamesData.validations[userToValidate][userPseudo] = true;
+    sio.to("myRoom").emit("validationTable", gamesData.validations);
     console.info(`User ${userPseudo} validate the answer of ${userToValidate}`);
   });
 
@@ -225,6 +223,7 @@ function socketBehavior(socket) {
     const userPseudo = data.pseudo;
     const userToValidate = data.userToValidate;
     gamesData.validations[userToValidate][userPseudo] = false;
+    sio.to("myRoom").emit("validationTable", gamesData.validations);
     console.info(`User ${userPseudo} reject the answer of ${userToValidate}`);
   });
 }
@@ -275,7 +274,7 @@ async function prepareQuestions() {
   });
 }
 
-function sendNextQuestion() {
+function sendNextRound() {
   if (gamesData.step === null) {
     gamesData.step = 0;
   } else {
@@ -297,10 +296,10 @@ function sendNextQuestion() {
   if (gamesData.step === gamesData.questions.length - 1) {
     sendScoreTable();
   } else {
-    sio.to("myRoom").emit("question", {
-      question: gamesData.questions[gamesData.step],
-      questionNumber: gamesData.step + 1,
-      totalQuestions: gamesData.questions.length,
+    sio.to("myRoom").emit("round", {
+      round: gamesData.questions[gamesData.step],
+      roundNumber: gamesData.step + 1,
+      totalRounds: gamesData.questions.length,
     });
   }
 }
@@ -319,14 +318,14 @@ function sendAnswersTable() {
     }),
   };
   gamesData.validations = {};
-  const listUsersWithValidation = {};
-  gamesData.users.map((user) => {
-    const pseudo = user.pseudo;
-    listUsersWithValidation[pseudo] = true;
-  });
-  gamesData.users.map((user) => {
-    const pseudo = user.pseudo;
-    gamesData.validations[pseudo] = listUsersWithValidation;
+  gamesData.users.map((firstUser) => {
+    const firstPseudo = firstUser.pseudo;
+    const listUsersWithValidation = {};
+    gamesData.users.map((secondUser) => {
+      const secondPseudo = secondUser.pseudo;
+      listUsersWithValidation[secondPseudo] = true;
+    });
+    gamesData.validations[firstPseudo] = listUsersWithValidation;
   });
   sio.to("myRoom").emit("answers", objToSend);
 }
