@@ -306,9 +306,9 @@ function sendNextRound() {
 
 function sendAnswersTable() {
   const objToSend = {
-    questionNumber: gamesData.step + 1,
-    totalQuestions: gamesData.questions.length,
-    question: gamesData.questions[gamesData.step],
+    roundNumber: gamesData.step + 1,
+    totalRounds: gamesData.questions.length,
+    round: gamesData.questions[gamesData.step],
     answer: gamesData.answers[gamesData.step],
     userAnswers: gamesData.users.map((user) => {
       return {
@@ -317,6 +317,11 @@ function sendAnswersTable() {
       };
     }),
   };
+  setValidationTable();
+  sio.to("myRoom").emit("answers", objToSend);
+}
+
+function setValidationTable() {
   gamesData.validations = {};
   gamesData.users.map((firstUser) => {
     const firstPseudo = firstUser.pseudo;
@@ -327,7 +332,6 @@ function sendAnswersTable() {
     });
     gamesData.validations[firstPseudo] = listUsersWithValidation;
   });
-  sio.to("myRoom").emit("answers", objToSend);
 }
 
 function sendScoreTable() {
