@@ -4,16 +4,16 @@
  * Module dependencies.
  */
 
-var app = require('../app');
-var debug = require('debug')('lockdownserver:server');
-var http = require('http');
+var app = require("../app");
+var debug = require("debug")("lockdownserver:server");
+var http = require("http");
 
 /**
  * Get port from environment and store in Express.
  */
 
-var port = normalizePort(process.env.PORT || '3000');
-app.set('port', port);
+var port = normalizePort(process.env.PORT || "3000");
+app.set("port", port);
 
 /**
  * Create HTTP server.
@@ -26,8 +26,8 @@ var server = http.createServer(app);
  */
 
 server.listen(port);
-server.on('error', onError);
-server.on('listening', onListening);
+server.on("error", onError);
+server.on("listening", onListening);
 
 /**
  * Normalize a port into a number, string, or false.
@@ -54,22 +54,20 @@ function normalizePort(val) {
  */
 
 function onError(error) {
-  if (error.syscall !== 'listen') {
+  if (error.syscall !== "listen") {
     throw error;
   }
 
-  var bind = typeof port === 'string'
-    ? 'Pipe ' + port
-    : 'Port ' + port;
+  var bind = typeof port === "string" ? "Pipe " + port : "Port " + port;
 
   // handle specific listen errors with friendly messages
   switch (error.code) {
-    case 'EACCES':
-      console.error(bind + ' requires elevated privileges');
+    case "EACCES":
+      console.error(bind + " requires elevated privileges");
       process.exit(1);
       break;
-    case 'EADDRINUSE':
-      console.error(bind + ' is already in use');
+    case "EADDRINUSE":
+      console.error(bind + " is already in use");
       process.exit(1);
       break;
     default:
@@ -83,8 +81,259 @@ function onError(error) {
 
 function onListening() {
   var addr = server.address();
-  var bind = typeof addr === 'string'
-    ? 'pipe ' + addr
-    : 'port ' + addr.port;
-  debug('Listening on ' + bind);
+  var bind = typeof addr === "string" ? "pipe " + addr : "port " + addr.port;
+  debug("Listening on " + bind);
+}
+
+/**
+ * Create Socket IO
+ */
+
+const sio = require("socket.io")(server, {
+  cors: { credentials: true, origin: "http://localhost:4200" },
+  transports: [
+    "websocket",
+    "htmlfile",
+    "xhr-polling",
+    "jsonp-polling",
+    "polling",
+  ],
+});
+
+let gamesData;
+
+sio.on("connection", (socket) => socketBehavior(socket));
+
+function socketBehavior(socket) {
+  console.log("Connected !");
+  socket.on("disconnecting", () => {
+    const rooms = Object.keys(socket.rooms);
+    // TODO: ASK EACH ROOMS TO RESEND INFO ABOUT USERS (to remove the proper user)
+  });
+
+  socket.on("createGame", async (data) => {
+    console.info("createGame", data);
+    const userPseudo = data.pseudo;
+    await prepareGameData();
+    gamesData.users.push({
+      pseudo: userPseudo,
+      ready: false,
+      points: 0,
+      answers: [],
+    });
+    socket.join("myRoom");
+    socket.emit("room", "myRoom");
+    sio.to("myRoom").emit("listUsers", gamesData.users);
+    console.info("Game successfully created : ", gamesData);
+  });
+
+  /**
+   * Handle Room Events
+   */
+
+  socket.on("newUser", (data) => {
+    console.info("newUser", data);
+    const userPseudo = data.pseudo;
+    const listPseudo = gamesData.users.map((user) => user.pseudo);
+    if (listPseudo.includes(userPseudo)) {
+      socket.emit("error", "PseudoAlreadyInUse");
+      console.info(`User ${userPseudo} already exists`);
+    } else {
+      gamesData.users.push({
+        pseudo: userPseudo,
+        ready: false,
+        points: 0,
+        answers: [],
+      });
+      socket.join("myRoom");
+      sio.to("myRoom").emit("listUsers", gamesData.users);
+      console.info(`User ${userPseudo} added to the game`);
+    }
+  });
+
+  socket.on("ready", async (data) => {
+    console.info("ready", data);
+    const userPseudo = data.pseudo;
+    gamesData.users.map((user) => {
+      if (user.pseudo === userPseudo) {
+        user.ready = true;
+      }
+    });
+    console.info(`User ${userPseudo} ready`);
+    sio.to("myRoom").emit("listUsers", gamesData.users);
+    const usersAllReady = gamesData.users.every((user) => user.ready);
+    if (usersAllReady) {
+      if (gamesData.step === gamesData.questions.length) {
+        console.info(`Every users ready, restarting game`);
+        await restartGame();
+      } else {
+        console.info(`Every users ready, sending next question`);
+        gamesData.users.map((user) => (user.ready = false));
+        sendNextRound();
+      }
+    }
+  });
+
+  socket.on("notReady", (data) => {
+    console.info("notReady", data);
+    const userPseudo = data.pseudo;
+    gamesData.users.map((user) => {
+      if (user.pseudo === userPseudo) {
+        user.ready = false;
+      }
+    });
+    sio.to("myRoom").emit("listUsers", gamesData.users);
+    console.info(`User ${userPseudo} not ready`);
+  });
+
+  /**
+   * Handle Question Events
+   */
+
+  socket.on("answered", (data) => {
+    console.info("answered", data);
+    const userPseudo = data.pseudo;
+    const userAnswer = data.answer;
+    gamesData.users.map((user) => {
+      if (user.pseudo === userPseudo) {
+        user.answers.push(userAnswer);
+      }
+    });
+    console.info(`User ${userPseudo} answered the question with ${userAnswer}`);
+    const usersAllAnswered = gamesData.users.every(
+      (user) => user.answers.length === gamesData.step + 1
+    );
+    if (usersAllAnswered) {
+      console.info(`Every users answered the question, sending answers table`);
+      sendAnswersTable();
+    }
+  });
+
+  socket.on("validateAnswer", (data) => {
+    console.info("validateAnswer", data);
+    const userPseudo = data.pseudo;
+    const userToValidate = data.userToValidate;
+    gamesData.validations[userToValidate][userPseudo] = true;
+    sio.to("myRoom").emit("validationTable", gamesData.validations);
+    console.info(`User ${userPseudo} validate the answer of ${userToValidate}`);
+  });
+
+  socket.on("rejectAnswer", (data) => {
+    console.info("rejectAnswer", data);
+    const userPseudo = data.pseudo;
+    const userToValidate = data.userToValidate;
+    gamesData.validations[userToValidate][userPseudo] = false;
+    sio.to("myRoom").emit("validationTable", gamesData.validations);
+    console.info(`User ${userPseudo} reject the answer of ${userToValidate}`);
+  });
+}
+
+const questionDb = require("../src/db/questions.db");
+
+async function restartGame() {
+  await prepareQuestions();
+  gamesData.step === null;
+  gamesData.users.map((user) => {
+    user.ready = false;
+    user.points = 0;
+    user.answers = [];
+  });
+  sio.to("myRoom").emit("restartGame", gamesData.users);
+}
+
+async function prepareGameData() {
+  gamesData = {
+    users: [],
+    questions: [],
+    answers: [],
+    step: null,
+  };
+  await prepareQuestions();
+}
+
+async function prepareQuestions() {
+  const questions = await questionDb.getRandomQuestions(2);
+  questions.map((question) => {
+    let toAddQuestion = {
+      id: question._id,
+      question: question.question,
+      answer: {
+        type: question.answer.type,
+      },
+    };
+    if (question.answer.options != null) {
+      toAddQuestion.answer.options = question.answer.options;
+    }
+    gamesData.questions.push(toAddQuestion);
+
+    let toAddAnswer = {
+      id: question._id,
+      answers: question.answer.answers,
+    };
+    gamesData.answers.push(toAddAnswer);
+  });
+}
+
+function sendNextRound() {
+  if (gamesData.step === null) {
+    gamesData.step = 0;
+  } else {
+    gamesData.step += 1;
+    gamesData.users.map((user) => {
+      const pseudo = user.pseudo;
+      let nbrOfValidation = 0;
+      for (var key in gamesData.validations[pseudo]) {
+        if (gamesData.validations[pseudo][key]) {
+          nbrOfValidation += 1;
+        }
+      }
+      if (nbrOfValidation >= gamesData.users.length) {
+        user.points += 1;
+      }
+    });
+  }
+  gamesData.validations = null;
+  if (gamesData.step === gamesData.questions.length) {
+    sendScoreTable();
+  } else {
+    sio.to("myRoom").emit("round", {
+      round: gamesData.questions[gamesData.step],
+      roundNumber: gamesData.step + 1,
+      totalRounds: gamesData.questions.length,
+    });
+  }
+}
+
+function sendAnswersTable() {
+  const objToSend = {
+    roundNumber: gamesData.step + 1,
+    totalRounds: gamesData.questions.length,
+    round: gamesData.questions[gamesData.step],
+    answer: gamesData.answers[gamesData.step],
+    userAnswers: gamesData.users.map((user) => {
+      return {
+        pseudo: user.pseudo,
+        answer: user.answers[gamesData.step],
+      };
+    }),
+  };
+  setValidationTable();
+  sio.to("myRoom").emit("answers", objToSend);
+}
+
+function setValidationTable() {
+  gamesData.validations = {};
+  gamesData.users.map((firstUser) => {
+    const firstPseudo = firstUser.pseudo;
+    const listUsersWithValidation = {};
+    gamesData.users.map((secondUser) => {
+      const secondPseudo = secondUser.pseudo;
+      listUsersWithValidation[secondPseudo] = true;
+    });
+    gamesData.validations[firstPseudo] = listUsersWithValidation;
+  });
+}
+
+function sendScoreTable() {
+  sio.to("myRoom").emit("results", gamesData.users);
 }
