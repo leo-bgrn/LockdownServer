@@ -90,7 +90,7 @@ function onListening() {
  */
 
 const sio = require("socket.io")(server, {
-  cors: { credentials: true, origin: "http://localhost:4200" },
+  cors: { credentials: true, origin: "http://bucketjeu.s3-website-eu-west-1.amazonaws.com/" },
   transports: [
     "websocket",
     "htmlfile",
