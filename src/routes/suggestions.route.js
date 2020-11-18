@@ -5,7 +5,7 @@ const suggestionController = require("../controllers/suggestions.controller");
 
 router.get("/", async function (req, res, next) {
   try {
-    const suggestions = await suggestionsDb.getAllSuggestions();
+    const suggestions = await suggestionController.getAllSuggestions();
     res.send(suggestions);
   } catch (e) {
     next(e);
@@ -15,7 +15,7 @@ router.get("/", async function (req, res, next) {
 router.get("/:id", async function (req, res, next) {
   try {
     const id = req.params.id;
-    const suggestion = await suggestionsDb.getSuggestionById(id);
+    const suggestion = await suggestionController.getSuggestionById(id);
     res.send(suggestion);
   } catch (e) {
     next(e);
@@ -25,7 +25,9 @@ router.get("/:id", async function (req, res, next) {
 router.get("/random/:nbrOfQuestion", async function (req, res, next) {
   try {
     const nbrOfQuestion = Number(req.params.nbrOfQuestion);
-    const suggestions = await suggestionsDb.getRandomSuggestions(nbrOfQuestion);
+    const suggestions = await suggestionController.getRandomSuggestions(
+      nbrOfQuestion
+    );
     res.send(suggestions);
   } catch (e) {
     next(e);

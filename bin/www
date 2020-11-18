@@ -90,7 +90,10 @@ function onListening() {
  */
 
 const sio = require("socket.io")(server, {
-  cors: { credentials: true, origin: "http://bucketjeu.s3-website-eu-west-1.amazonaws.com" },
+  cors: {
+    credentials: true,
+    origin: "http://bucketjeu.s3-website-eu-west-1.amazonaws.com",
+  },
   transports: [
     "websocket",
     "htmlfile",
@@ -229,6 +232,7 @@ function socketBehavior(socket) {
 }
 
 const questionDb = require("../src/db/questions.db");
+const questionsController = require("../src/controllers/questions.controller");
 
 async function restartGame() {
   await prepareQuestions();
@@ -254,23 +258,11 @@ async function prepareGameData() {
 async function prepareQuestions() {
   const questions = await questionDb.getRandomQuestions(2);
   questions.map((question) => {
-    let toAddQuestion = {
-      id: question._id,
-      question: question.question,
-      answer: {
-        type: question.answer.type,
-      },
-    };
-    if (question.answer.options != null) {
-      toAddQuestion.answer.options = question.answer.options;
-    }
-    gamesData.questions.push(toAddQuestion);
-
-    let toAddAnswer = {
-      id: question._id,
-      answers: question.answer.answers,
-    };
-    gamesData.answers.push(toAddAnswer);
+    const { round, answer } = questionsController.questionToRoundAndAnswer(
+      question
+    );
+    gamesData.questions.push(round);
+    gamesData.answers.push(answer);
   });
 }
 
