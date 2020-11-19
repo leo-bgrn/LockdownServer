@@ -92,7 +92,7 @@ function onListening() {
 const sio = require("socket.io")(server, {
   cors: {
     credentials: true,
-    origin: "http://lock-down.s3-website.eu-west-3.amazonaws.com/",
+    origin: "http://lock-down.s3-website.eu-west-3.amazonaws.com",
   },
   transports: [
     "websocket",
