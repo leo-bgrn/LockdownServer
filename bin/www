@@ -92,7 +92,8 @@ function onListening() {
 const sio = require("socket.io")(server, {
   cors: {
     credentials: true,
-    origin: "http://lock-down.s3-website.eu-west-3.amazonaws.com",
+    //origin: "http://lock-down.s3-website.eu-west-3.amazonaws.com",
+    origin: "http://localhost:4200",
   },
   transports: [
     "websocket",
@@ -111,7 +112,25 @@ function socketBehavior(socket) {
   console.log("Connected !");
   socket.on("disconnecting", () => {
     const rooms = Object.keys(socket.rooms);
-    // TODO: ASK EACH ROOMS TO RESEND INFO ABOUT USERS (to remove the proper user)
+
+    rooms.map((room) => {
+      sio.to(room).emit("reloadUsers");
+      gamesData[room].temp = gamesData[room].users;
+    });
+  });
+
+  socket.on("reloadUser", (data) => {
+    const pseudo = data.pseudo;
+    const room = data.room;
+    gamesData[room].temp.map((user) => {
+      if (user.pseudo === pseudo) {
+        gamesData[room].users.push(user);
+      }
+    });
+    socket.join(room);
+    sio
+      .to(room)
+      .emit("roomData", { room: newId, users: gamesData[newId].users });
   });
 
   socket.on("createGame", async (data) => {
@@ -169,9 +188,7 @@ function socketBehavior(socket) {
       }
     });
     console.info(`User ${userPseudo} ready`);
-    sio
-      .to(room)
-      .emit("roomData", { room: room, users: gamesData[room].users });
+    sio.to(room).emit("roomData", { room: room, users: gamesData[room].users });
     const usersAllReady = gamesData[room].users.every((user) => user.ready);
     if (usersAllReady) {
       if (gamesData[room].step === gamesData[room].questions.length) {
