@@ -92,7 +92,8 @@ function onListening() {
 const sio = require("socket.io")(server, {
   cors: {
     credentials: true,
-    origin: "http://lock-down.s3-website.eu-west-3.amazonaws.com",
+    //origin: "http://lock-down.s3-website.eu-west-3.amazonaws.com",
+    origin: "http://localhost:4200",
   },
   transports: [
     "websocket",
@@ -103,30 +104,51 @@ const sio = require("socket.io")(server, {
   ],
 });
 
-let gamesData;
+let gamesData = {};
 
 sio.on("connection", (socket) => socketBehavior(socket));
 
 function socketBehavior(socket) {
   console.log("Connected !");
-  socket.on("disconnecting", () => {
-    const rooms = Object.keys(socket.rooms);
-    // TODO: ASK EACH ROOMS TO RESEND INFO ABOUT USERS (to remove the proper user)
+  socket.on("disconnecting", async function () {
+    const rooms = Array.from(socket.rooms);
+
+    rooms.forEach(async (room) => {
+      if (gamesData[room] != null) {
+        const pseudo = gamesData[room].users.find(
+          (user) => user.socketId === this.id
+        ).pseudo;
+        gamesData[room].users = gamesData[room].users.filter(
+          (user) => user.socketId !== this.id
+        );
+        if (gamesData[room].validations != null) {
+          delete gamesData[room].validations[pseudo];
+          Array.from(gamesData[room].validations.values()).forEach(
+            (user) => delete user[pseudo]
+          );
+        }
+        await checkUsersAllReady(room);
+        console.log("Room " + room + " User " + pseudo + " disconnected");
+      }
+    });
   });
 
-  socket.on("createGame", async (data) => {
+  socket.on("createGame", async function (data) {
     console.info("createGame", data);
     const userPseudo = data.pseudo;
-    await prepareGameData();
-    gamesData.users.push({
+    const newId = createNotUsedId();
+    await prepareGameData(newId);
+    gamesData[newId].users.push({
       pseudo: userPseudo,
       ready: false,
       points: 0,
       answers: [],
+      socketId: this.id,
     });
-    socket.join("myRoom");
-    socket.emit("room", "myRoom");
-    sio.to("myRoom").emit("listUsers", gamesData.users);
+    socket.join(newId);
+    sio
+      .to(newId)
+      .emit("roomData", { room: newId, users: gamesData[newId].users });
     console.info("Game successfully created : ", gamesData);
   });
 
@@ -134,58 +156,59 @@ function socketBehavior(socket) {
    * Handle Room Events
    */
 
-  socket.on("newUser", (data) => {
+  socket.on("newUser", function (data) {
     console.info("newUser", data);
     const userPseudo = data.pseudo;
-    const listPseudo = gamesData.users.map((user) => user.pseudo);
-    if (listPseudo.includes(userPseudo)) {
-      socket.emit("error", "PseudoAlreadyInUse");
-      console.info(`User ${userPseudo} already exists`);
+    const room = data.room;
+
+    if (gamesData[room].step !== null) {
+      socket.emit("error", "GameAlreadyStarted");
+      console.info(`User ${userPseudo} tried to connect but the game is on`);
     } else {
-      gamesData.users.push({
-        pseudo: userPseudo,
-        ready: false,
-        points: 0,
-        answers: [],
-      });
-      socket.join("myRoom");
-      sio.to("myRoom").emit("listUsers", gamesData.users);
-      console.info(`User ${userPseudo} added to the game`);
+      const listPseudo = gamesData[room].users.map((user) => user.pseudo);
+      if (listPseudo.includes(userPseudo)) {
+        socket.emit("error", "PseudoAlreadyInUse");
+        console.info(`User ${userPseudo} already exists`);
+      } else {
+        gamesData[room].users.push({
+          pseudo: userPseudo,
+          ready: false,
+          points: 0,
+          answers: [],
+          socketId: this.id,
+        });
+        socket.join(room);
+        sio
+          .to(room)
+          .emit("roomData", { room: room, users: gamesData[room].users });
+        console.info(`User ${userPseudo} added to the game`);
+      }
     }
   });
 
-  socket.on("ready", async (data) => {
+  socket.on("ready", async function (data) {
     console.info("ready", data);
     const userPseudo = data.pseudo;
-    gamesData.users.map((user) => {
+    const room = data.room;
+    gamesData[room].users.map((user) => {
       if (user.pseudo === userPseudo) {
         user.ready = true;
       }
     });
     console.info(`User ${userPseudo} ready`);
-    sio.to("myRoom").emit("listUsers", gamesData.users);
-    const usersAllReady = gamesData.users.every((user) => user.ready);
-    if (usersAllReady) {
-      if (gamesData.step === gamesData.questions.length) {
-        console.info(`Every users ready, restarting game`);
-        await restartGame();
-      } else {
-        console.info(`Every users ready, sending next question`);
-        gamesData.users.map((user) => (user.ready = false));
-        sendNextRound();
-      }
-    }
+    await checkUsersAllReady(room);
   });
 
-  socket.on("notReady", (data) => {
+  socket.on("notReady", function (data) {
     console.info("notReady", data);
     const userPseudo = data.pseudo;
-    gamesData.users.map((user) => {
+    const room = data.room;
+    gamesData[room].users.map((user) => {
       if (user.pseudo === userPseudo) {
         user.ready = false;
       }
     });
-    sio.to("myRoom").emit("listUsers", gamesData.users);
+    sio.to(room).emit("roomData", { room: room, users: gamesData[room].users });
     console.info(`User ${userPseudo} not ready`);
   });
 
@@ -193,40 +216,43 @@ function socketBehavior(socket) {
    * Handle Question Events
    */
 
-  socket.on("answered", (data) => {
+  socket.on("answered", function (data) {
     console.info("answered", data);
     const userPseudo = data.pseudo;
     const userAnswer = data.answer;
-    gamesData.users.map((user) => {
+    const room = data.room;
+    gamesData[room].users.map((user) => {
       if (user.pseudo === userPseudo) {
         user.answers.push(userAnswer);
       }
     });
     console.info(`User ${userPseudo} answered the question with ${userAnswer}`);
-    const usersAllAnswered = gamesData.users.every(
-      (user) => user.answers.length === gamesData.step + 1
+    const usersAllAnswered = gamesData[room].users.every(
+      (user) => user.answers.length === gamesData[room].step + 1
     );
     if (usersAllAnswered) {
       console.info(`Every users answered the question, sending answers table`);
-      sendAnswersTable();
+      sendAnswersTable(room);
     }
   });
 
-  socket.on("validateAnswer", (data) => {
+  socket.on("validateAnswer", function (data) {
     console.info("validateAnswer", data);
     const userPseudo = data.pseudo;
     const userToValidate = data.userToValidate;
-    gamesData.validations[userToValidate][userPseudo] = true;
-    sio.to("myRoom").emit("validationTable", gamesData.validations);
+    const room = data.room;
+    gamesData[room].validations[userToValidate][userPseudo] = true;
+    sio.to(room).emit("validationTable", gamesData[room].validations);
     console.info(`User ${userPseudo} validate the answer of ${userToValidate}`);
   });
 
-  socket.on("rejectAnswer", (data) => {
+  socket.on("rejectAnswer", function (data) {
     console.info("rejectAnswer", data);
     const userPseudo = data.pseudo;
     const userToValidate = data.userToValidate;
-    gamesData.validations[userToValidate][userPseudo] = false;
-    sio.to("myRoom").emit("validationTable", gamesData.validations);
+    const room = data.room;
+    gamesData[room].validations[userToValidate][userPseudo] = false;
+    sio.to(room).emit("validationTable", gamesData[room].validations);
     console.info(`User ${userPseudo} reject the answer of ${userToValidate}`);
   });
 }
@@ -234,98 +260,131 @@ function socketBehavior(socket) {
 const questionDb = require("../src/db/questions.db");
 const questionsController = require("../src/controllers/questions.controller");
 
-async function restartGame() {
-  await prepareQuestions();
-  gamesData.step === null;
-  gamesData.users.map((user) => {
+async function checkUsersAllReady(room) {
+  sio.to(room).emit("roomData", { room: room, users: gamesData[room].users });
+  const usersAllReady = gamesData[room].users.every((user) => user.ready);
+  if (usersAllReady) {
+    if (gamesData[room].step === gamesData[room].questions.length) {
+      console.info(`Every users ready, restarting game`);
+      await restartGame(room);
+    } else {
+      console.info(`Every users ready, sending next question`);
+      gamesData[room].users.map((user) => (user.ready = false));
+      sendNextRound(room);
+    }
+  }
+}
+
+async function restartGame(gameId) {
+  await prepareQuestions(gameId);
+  gamesData[gameId].step === null;
+  gamesData[gameId].users.map((user) => {
     user.ready = false;
     user.points = 0;
     user.answers = [];
   });
-  sio.to("myRoom").emit("restartGame", gamesData.users);
+  sio.to(gameId).emit("restartGame", gamesData[gameId].users);
 }
 
-async function prepareGameData() {
-  gamesData = {
+async function prepareGameData(gameId) {
+  gamesData[gameId] = {
     users: [],
     questions: [],
     answers: [],
     step: null,
   };
-  await prepareQuestions();
+  await prepareQuestions(gameId);
 }
 
-async function prepareQuestions() {
+async function prepareQuestions(gameId) {
   const questions = await questionDb.getRandomQuestions(2);
   questions.map((question) => {
     const { round, answer } = questionsController.questionToRoundAndAnswer(
       question
     );
-    gamesData.questions.push(round);
-    gamesData.answers.push(answer);
+    gamesData[gameId].questions.push(round);
+    gamesData[gameId].answers.push(answer);
   });
 }
 
-function sendNextRound() {
-  if (gamesData.step === null) {
-    gamesData.step = 0;
+function sendNextRound(gameId) {
+  if (gamesData[gameId].step === null) {
+    gamesData[gameId].step = 0;
   } else {
-    gamesData.step += 1;
-    gamesData.users.map((user) => {
+    gamesData[gameId].step += 1;
+    gamesData[gameId].users.map((user) => {
       const pseudo = user.pseudo;
       let nbrOfValidation = 0;
-      for (var key in gamesData.validations[pseudo]) {
-        if (gamesData.validations[pseudo][key]) {
+      for (var key in gamesData[gameId].validations[pseudo]) {
+        if (gamesData[gameId].validations[pseudo][key]) {
           nbrOfValidation += 1;
         }
       }
-      if (nbrOfValidation >= gamesData.users.length) {
+      if (nbrOfValidation >= gamesData[gameId].users.length) {
         user.points += 1;
       }
     });
   }
-  gamesData.validations = null;
-  if (gamesData.step === gamesData.questions.length) {
-    sendScoreTable();
+  gamesData[gameId].validations = null;
+  if (gamesData[gameId].step === gamesData[gameId].questions.length) {
+    sendScoreTable(gameId);
   } else {
-    sio.to("myRoom").emit("round", {
-      round: gamesData.questions[gamesData.step],
-      roundNumber: gamesData.step + 1,
-      totalRounds: gamesData.questions.length,
+    sio.to(gameId).emit("round", {
+      round: gamesData[gameId].questions[gamesData[gameId].step],
+      roundNumber: gamesData[gameId].step + 1,
+      totalRounds: gamesData[gameId].questions.length,
     });
   }
 }
 
-function sendAnswersTable() {
+function sendAnswersTable(gameId) {
   const objToSend = {
-    roundNumber: gamesData.step + 1,
-    totalRounds: gamesData.questions.length,
-    round: gamesData.questions[gamesData.step],
-    answer: gamesData.answers[gamesData.step],
-    userAnswers: gamesData.users.map((user) => {
+    roundNumber: gamesData[gameId].step + 1,
+    totalRounds: gamesData[gameId].questions.length,
+    round: gamesData[gameId].questions[gamesData[gameId].step],
+    answer: gamesData[gameId].answers[gamesData[gameId].step],
+    userAnswers: gamesData[gameId].users.map((user) => {
       return {
         pseudo: user.pseudo,
-        answer: user.answers[gamesData.step],
+        answer: user.answers[gamesData[gameId].step],
       };
     }),
   };
-  setValidationTable();
-  sio.to("myRoom").emit("answers", objToSend);
+  setValidationTable(gameId);
+  sio.to(gameId).emit("answers", objToSend);
 }
 
-function setValidationTable() {
-  gamesData.validations = {};
-  gamesData.users.map((firstUser) => {
+function setValidationTable(gameId) {
+  gamesData[gameId].validations = {};
+  gamesData[gameId].users.map((firstUser) => {
     const firstPseudo = firstUser.pseudo;
     const listUsersWithValidation = {};
-    gamesData.users.map((secondUser) => {
+    gamesData[gameId].users.map((secondUser) => {
       const secondPseudo = secondUser.pseudo;
       listUsersWithValidation[secondPseudo] = true;
     });
-    gamesData.validations[firstPseudo] = listUsersWithValidation;
+    gamesData[gameId].validations[firstPseudo] = listUsersWithValidation;
   });
 }
 
-function sendScoreTable() {
-  sio.to("myRoom").emit("results", gamesData.users);
+function sendScoreTable(gameId) {
+  sio.to(gameId).emit("results", gamesData[gameId].users);
+}
+
+function createNotUsedId() {
+  let myNewId = createId();
+  while (gamesData[myNewId] != null) {
+    myNewId = createId();
+  }
+  return myNewId;
+}
+
+function createId() {
+  var result = "";
+  var characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  var charactersLength = characters.length;
+  for (var i = 0; i < 6; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
 }
