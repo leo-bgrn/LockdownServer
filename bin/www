@@ -110,30 +110,30 @@ sio.on("connection", (socket) => socketBehavior(socket));
 
 function socketBehavior(socket) {
   console.log("Connected !");
-  socket.on("disconnecting", () => {
-    const rooms = Object.keys(socket.rooms);
+  socket.on("disconnecting", async function () {
+    const rooms = Array.from(socket.rooms);
 
-    rooms.map((room) => {
-      sio.to(room).emit("reloadUsers");
-      gamesData[room].temp = gamesData[room].users;
-    });
-  });
-
-  socket.on("reloadUser", (data) => {
-    const pseudo = data.pseudo;
-    const room = data.room;
-    gamesData[room].temp.map((user) => {
-      if (user.pseudo === pseudo) {
-        gamesData[room].users.push(user);
+    rooms.forEach(async (room) => {
+      if (gamesData[room] != null) {
+        const pseudo = gamesData[room].users.find(
+          (user) => user.socketId === this.id
+        ).pseudo;
+        gamesData[room].users = gamesData[room].users.filter(
+          (user) => user.socketId !== this.id
+        );
+        if (gamesData[room].validations != null) {
+          delete gamesData[room].validations[pseudo];
+          Array.from(gamesData[room].validations.values()).forEach(
+            (user) => delete user[pseudo]
+          );
+        }
+        await checkUsersAllReady(room);
+        console.log("Room " + room + " User " + pseudo + " disconnected");
       }
     });
-    socket.join(room);
-    sio
-      .to(room)
-      .emit("roomData", { room: newId, users: gamesData[newId].users });
   });
 
-  socket.on("createGame", async (data) => {
+  socket.on("createGame", async function (data) {
     console.info("createGame", data);
     const userPseudo = data.pseudo;
     const newId = createNotUsedId();
@@ -143,6 +143,7 @@ function socketBehavior(socket) {
       ready: false,
       points: 0,
       answers: [],
+      socketId: this.id,
     });
     socket.join(newId);
     sio
@@ -155,30 +156,37 @@ function socketBehavior(socket) {
    * Handle Room Events
    */
 
-  socket.on("newUser", (data) => {
+  socket.on("newUser", function (data) {
     console.info("newUser", data);
     const userPseudo = data.pseudo;
     const room = data.room;
-    const listPseudo = gamesData[room].users.map((user) => user.pseudo);
-    if (listPseudo.includes(userPseudo)) {
-      socket.emit("error", "PseudoAlreadyInUse");
-      console.info(`User ${userPseudo} already exists`);
+
+    if (gamesData[room].step !== null) {
+      socket.emit("error", "GameAlreadyStarted");
+      console.info(`User ${userPseudo} tried to connect but the game is on`);
     } else {
-      gamesData[room].users.push({
-        pseudo: userPseudo,
-        ready: false,
-        points: 0,
-        answers: [],
-      });
-      socket.join(room);
-      sio
-        .to(room)
-        .emit("roomData", { room: room, users: gamesData[room].users });
-      console.info(`User ${userPseudo} added to the game`);
+      const listPseudo = gamesData[room].users.map((user) => user.pseudo);
+      if (listPseudo.includes(userPseudo)) {
+        socket.emit("error", "PseudoAlreadyInUse");
+        console.info(`User ${userPseudo} already exists`);
+      } else {
+        gamesData[room].users.push({
+          pseudo: userPseudo,
+          ready: false,
+          points: 0,
+          answers: [],
+          socketId: this.id,
+        });
+        socket.join(room);
+        sio
+          .to(room)
+          .emit("roomData", { room: room, users: gamesData[room].users });
+        console.info(`User ${userPseudo} added to the game`);
+      }
     }
   });
 
-  socket.on("ready", async (data) => {
+  socket.on("ready", async function (data) {
     console.info("ready", data);
     const userPseudo = data.pseudo;
     const room = data.room;
@@ -188,21 +196,10 @@ function socketBehavior(socket) {
       }
     });
     console.info(`User ${userPseudo} ready`);
-    sio.to(room).emit("roomData", { room: room, users: gamesData[room].users });
-    const usersAllReady = gamesData[room].users.every((user) => user.ready);
-    if (usersAllReady) {
-      if (gamesData[room].step === gamesData[room].questions.length) {
-        console.info(`Every users ready, restarting game`);
-        await restartGame(room);
-      } else {
-        console.info(`Every users ready, sending next question`);
-        gamesData[room].users.map((user) => (user.ready = false));
-        sendNextRound(room);
-      }
-    }
+    await checkUsersAllReady(room);
   });
 
-  socket.on("notReady", (data) => {
+  socket.on("notReady", function (data) {
     console.info("notReady", data);
     const userPseudo = data.pseudo;
     const room = data.room;
@@ -219,7 +216,7 @@ function socketBehavior(socket) {
    * Handle Question Events
    */
 
-  socket.on("answered", (data) => {
+  socket.on("answered", function (data) {
     console.info("answered", data);
     const userPseudo = data.pseudo;
     const userAnswer = data.answer;
@@ -239,7 +236,7 @@ function socketBehavior(socket) {
     }
   });
 
-  socket.on("validateAnswer", (data) => {
+  socket.on("validateAnswer", function (data) {
     console.info("validateAnswer", data);
     const userPseudo = data.pseudo;
     const userToValidate = data.userToValidate;
@@ -249,7 +246,7 @@ function socketBehavior(socket) {
     console.info(`User ${userPseudo} validate the answer of ${userToValidate}`);
   });
 
-  socket.on("rejectAnswer", (data) => {
+  socket.on("rejectAnswer", function (data) {
     console.info("rejectAnswer", data);
     const userPseudo = data.pseudo;
     const userToValidate = data.userToValidate;
@@ -262,6 +259,21 @@ function socketBehavior(socket) {
 
 const questionDb = require("../src/db/questions.db");
 const questionsController = require("../src/controllers/questions.controller");
+
+async function checkUsersAllReady(room) {
+  sio.to(room).emit("roomData", { room: room, users: gamesData[room].users });
+  const usersAllReady = gamesData[room].users.every((user) => user.ready);
+  if (usersAllReady) {
+    if (gamesData[room].step === gamesData[room].questions.length) {
+      console.info(`Every users ready, restarting game`);
+      await restartGame(room);
+    } else {
+      console.info(`Every users ready, sending next question`);
+      gamesData[room].users.map((user) => (user.ready = false));
+      sendNextRound(room);
+    }
+  }
+}
 
 async function restartGame(gameId) {
   await prepareQuestions(gameId);
