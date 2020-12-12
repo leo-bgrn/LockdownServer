@@ -282,7 +282,9 @@ async function restartGame(gameId) {
     user.points = 0;
     user.answers = [];
   });
-  sio.to(gameId).emit("roomData", { room: gameId, users: gamesData[gameId].users });
+  sio
+    .to(gameId)
+    .emit("roomData", { room: gameId, users: gamesData[gameId].users });
 }
 
 async function prepareGameData(gameId) {
@@ -296,6 +298,8 @@ async function prepareGameData(gameId) {
 }
 
 async function prepareQuestions(gameId) {
+  gamesData[gameId].questions = [];
+  gamesData[gameId].answers = [];
   const questions = await questionDb.getRandomQuestions(2);
   questions.map((question) => {
     const { round, answer } = questionsController.questionToRoundAndAnswer(
