@@ -92,8 +92,8 @@ function onListening() {
 const sio = require("socket.io")(server, {
   cors: {
     credentials: true,
-    origin: "http://lock-down.s3-website.eu-west-3.amazonaws.com",
-    //origin: "http://localhost:4200",
+    //origin: "http://lock-down.s3-website.eu-west-3.amazonaws.com",
+    origin: "http://localhost:4200",
   },
   transports: [
     "websocket",
@@ -109,7 +109,6 @@ let gamesData = {};
 sio.on("connection", (socket) => socketBehavior(socket));
 
 function socketBehavior(socket) {
-  console.log("Connected !");
   socket.on("disconnecting", async function () {
     const rooms = Array.from(socket.rooms);
 
@@ -127,8 +126,13 @@ function socketBehavior(socket) {
             (user) => delete user[pseudo]
           );
         }
-        await checkUsersAllReady(room);
-        console.log("Room " + room + " User " + pseudo + " disconnected");
+        if (gamesData[room].users.length < 1) {
+          console.log("No users in room " + room + ", deleting data");
+          delete gamesData[room];
+        } else {
+          console.log("Room " + room + " User " + pseudo + " disconnected");
+          await checkUsersAllReady(room);
+        }
       }
     });
   });
@@ -264,26 +268,21 @@ async function checkUsersAllReady(room) {
   sio.to(room).emit("roomData", { room: room, users: gamesData[room].users });
   const usersAllReady = gamesData[room].users.every((user) => user.ready);
   if (usersAllReady) {
-    if (gamesData[room].step === gamesData[room].questions.length) {
-      console.info(`Every users ready, restarting game`);
-      await restartGame(room);
-    } else {
-      console.info(`Every users ready, sending next question`);
-      gamesData[room].users.map((user) => (user.ready = false));
-      sendNextRound(room);
-    }
+    console.info(`Every users ready, sending next question`);
+    gamesData[room].users.map((user) => (user.ready = false));
+    await sendNextRound(room);
   }
 }
 
 async function restartGame(gameId) {
   await prepareQuestions(gameId);
-  gamesData[gameId].step === null;
+  gamesData[gameId].step = null;
   gamesData[gameId].users.map((user) => {
     user.ready = false;
     user.points = 0;
     user.answers = [];
   });
-  sio.to(gameId).emit("restartGame", gamesData[gameId].users);
+  sio.to(gameId).emit("roomData", { room: gameId, users: gamesData[gameId].users });
 }
 
 async function prepareGameData(gameId) {
@@ -307,7 +306,7 @@ async function prepareQuestions(gameId) {
   });
 }
 
-function sendNextRound(gameId) {
+async function sendNextRound(gameId) {
   if (gamesData[gameId].step === null) {
     gamesData[gameId].step = 0;
   } else {
@@ -327,7 +326,7 @@ function sendNextRound(gameId) {
   }
   gamesData[gameId].validations = null;
   if (gamesData[gameId].step === gamesData[gameId].questions.length) {
-    sendScoreTable(gameId);
+    await sendScoreTable(gameId);
   } else {
     sio.to(gameId).emit("round", {
       round: gamesData[gameId].questions[gamesData[gameId].step],
@@ -367,8 +366,9 @@ function setValidationTable(gameId) {
   });
 }
 
-function sendScoreTable(gameId) {
+async function sendScoreTable(gameId) {
   sio.to(gameId).emit("results", gamesData[gameId].users);
+  await restartGame(gameId);
 }
 
 function createNotUsedId() {
