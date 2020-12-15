@@ -13,6 +13,7 @@ function questionToRoundAndAnswer(question) {
   let resAnswer = {
     id: question._id,
     answers: question.answer.answers,
+    explanation: question.answer.explanation != null ? question.answer.explanation : ''
   };
 
   return { round: resRound, answer: resAnswer };
