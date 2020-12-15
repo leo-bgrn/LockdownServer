@@ -92,8 +92,8 @@ function onListening() {
 const sio = require("socket.io")(server, {
   cors: {
     credentials: true,
-    //origin: "http://lock-down.s3-website.eu-west-3.amazonaws.com",
-    origin: "http://localhost:4200",
+    origin: "http://lock-down.s3-website.eu-west-3.amazonaws.com",
+    //origin: "http://localhost:4200",
   },
   transports: [
     "websocket",
@@ -222,12 +222,16 @@ function socketBehavior(socket) {
 
   socket.on("answered", function (data) {
     console.info("answered", data);
+    const timeAnswered = Date.now();
     const userPseudo = data.pseudo;
     const userAnswer = data.answer;
     const room = data.room;
     gamesData[room].users.map((user) => {
       if (user.pseudo === userPseudo) {
-        user.answers.push(userAnswer);
+        user.answers.push({
+          answer: userAnswer,
+          answerTime: timeAnswered - gamesData[room].startQuestionTime,
+        });
       }
     });
     console.info(`User ${userPseudo} answered the question with ${userAnswer}`);
@@ -314,8 +318,8 @@ async function sendNextRound(gameId) {
   if (gamesData[gameId].step === null) {
     gamesData[gameId].step = 0;
   } else {
-    gamesData[gameId].step += 1;
-    gamesData[gameId].users.map((user) => {
+    let fasterUser = null;
+    gamesData[gameId].users.forEach((user) => {
       const pseudo = user.pseudo;
       let nbrOfValidation = 0;
       for (var key in gamesData[gameId].validations[pseudo]) {
@@ -325,13 +329,24 @@ async function sendNextRound(gameId) {
       }
       if (nbrOfValidation >= gamesData[gameId].users.length) {
         user.points += 1;
+        const userAnswerTime = user.answers[gamesData[gameId].step].answerTime;
+        if (fasterUser === null || fasterUser.time > userAnswerTime) {
+          fasterUser = { pseudo: pseudo, time: userAnswerTime };
+        }
       }
     });
+    if (fasterUser !== null) {
+      gamesData[gameId].users.filter(
+        (user) => user.pseudo === fasterUser.pseudo
+      )[0].points += 1;
+    }
+    gamesData[gameId].step += 1;
   }
   gamesData[gameId].validations = null;
   if (gamesData[gameId].step === gamesData[gameId].questions.length) {
     await sendScoreTable(gameId);
   } else {
+    gamesData[gameId].startQuestionTime = Date.now();
     sio.to(gameId).emit("round", {
       round: gamesData[gameId].questions[gamesData[gameId].step],
       roundNumber: gamesData[gameId].step + 1,
@@ -349,7 +364,8 @@ function sendAnswersTable(gameId) {
     userAnswers: gamesData[gameId].users.map((user) => {
       return {
         pseudo: user.pseudo,
-        answer: user.answers[gamesData[gameId].step],
+        answer: user.answers[gamesData[gameId].step].answer,
+        time: user.answers[gamesData[gameId].step].answerTime,
       };
     }),
   };
