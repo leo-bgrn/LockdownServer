@@ -46,7 +46,6 @@ function validateTextWithImageQuestion(question) {
 }
 
 function validateAnswer(answer) {
-  checkFieldIsString(answer.explanation, "explanation", "", "answer");
   switch (answer.type) {
     case "plaintext":
       return validatePlainTextAnswer(answer);
@@ -66,11 +65,7 @@ function validatePlainTextAnswer(answer) {
     "plaintext",
     "answer"
   );
-  return {
-    type: answer.type,
-    answers: answer.answers,
-    explanation: answer.explanation,
-  };
+  return { type: answer.type, answers: answer.answers };
 }
 
 function validateCheckboxAnswer(answer) {
@@ -85,7 +80,6 @@ function validateCheckboxAnswer(answer) {
     type: answer.type,
     options: answer.options,
     answers: answer.answers,
-    explanation: answer.explanation,
   };
 }
 
@@ -101,7 +95,6 @@ function validateRadioAnswer(answer) {
     type: answer.type,
     options: answer.options,
     answers: answer.answers,
-    explanation: answer.explanation,
   };
 }
 
@@ -128,17 +121,6 @@ function checkFieldIsArrayOfString(field, fieldName, type, questionOrAnswer) {
   ) {
     throw new Error(
       `Every elements in '${fieldName}' field must be a string for a '${type}' ${questionOrAnswer}`
-    );
-  }
-}
-
-function checkFieldIsString(field, fieldName, type, questionOrAnswer) {
-  if (field == null) {
-    return;
-  }
-  if (typeof field !== "string") {
-    throw new Error(
-      `'${fieldName}' field must be a string for a '${type}' ${questionOrAnswer}`
     );
   }
 }
